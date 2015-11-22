@@ -18,14 +18,27 @@
 
 -(NSString *)dataFilePath
 {
-    NSArray *paths=NSSearchPathForDirectoriesInDomains(NSDocumentationDirectory,NSUserDomainMask,YES);
+    /*
+     获取程序document目录
+     NSDocumentDirectory 是指程序中对应的Documents路径，而NSDocumentionDirectory对应于程序中的Library/Documentation路径，这个路径是没有读写权限的，所以看不到文件生成。
+     NSUserDomainMask是把搜索范围限制在沙盒内
+     */
+    NSArray *paths=NSSearchPathForDirectoriesInDomains(NSDocumentDirectory,NSUserDomainMask,YES);
     NSString *documentsDirectory=[paths objectAtIndex:0];
-    return [documentsDirectory stringByAppendingPathComponent:documentsDirectory];
+    NSLog(@"获取到的目录是：%@",documentsDirectory);
+    
+    {
+        //参考http://blog.csdn.net/xingxing513234072/article/details/24184917
+        NSString *path2=NSHomeDirectory();
+        NSLog(@"获取的主目录是：%@",path2);
+    }
+    
+    return [documentsDirectory stringByAppendingPathComponent:@"data.sqlite"];
 }
 
 - (void)viewDidLoad {
     [super viewDidLoad];
-    sqlite3 *database;
+    
     /*
      打开数据库连接
      [1]数据库的完整路径，不存在会自动创建，存在尝试打开，
@@ -33,6 +46,7 @@
      
      SQLITE_OK是sqlite操作成功的标识
      */
+    sqlite3 *database;
     if (sqlite3_open([[self dataFilePath] UTF8String], &database)!=SQLITE_OK){
         //关闭数据库连接
         sqlite3_close(database);
@@ -91,9 +105,19 @@
     sqlite3_close(database);
     
     UIApplication *app=[UIApplication sharedApplication];
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(applicationWillResignActive:) name:UIApplicationWillResignActiveNotification object:app];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(applicationWillResignActive:)
+                                                 name:UIApplicationWillResignActiveNotification
+                                               object:app];
 }
 
+/*
+ 收到UIApplicationWillResignActiveNotification(程序不在活跃并且失去焦点)的通知时的调用函数
+ 
+ 打开数据库连接
+ 把文本框的内容存储到数据库
+ 关闭数据库连接
+ */
 -(void)applicationWillResignActive:(NSNotification *)notification
 {
     sqlite3 *database;
@@ -101,8 +125,9 @@
         sqlite3_close(database);
         NSAssert(0, @"打开数据库失败");
     }
-    for (int i=1; i<4; i++) {
+    for (int i=0; i<4; i++) {
         UITextField *file=self.lineFields[i];
+        //NSLog(@"%d的text是%@",i,file.text);
         char *update="insert or replace into fields(raw,field_data) values (?,?);";
         char *errormsg=NULL;
         sqlite3_stmt *stmt;
